@@ -1,14 +1,33 @@
 import os
+import threading
+from http.server import HTTPServer, BaseHTTPRequestHandler
 import discord
 from discord.ext import commands, tasks
 
+# --- Dummy HTTP Server for Render Health Check ---
+class HealthCheckHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
+    server.serve_forever()
+
+# Start the web server in a background thread
+threading.Thread(target=run_web_server, daemon=True).start()
+
+# --- Discord Bot Setup ---
 intents = discord.Intents.default()
 intents.message_content = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Target Channel ID (Replace with your channel's ID)
-TARGET_CHANNEL_ID = 1551304309227004144
+# Replace 123456789012345678 with your actual target channel ID
+TARGET_CHANNEL_ID = 123456789012345678
 
 # Official Discord Wumpus Wave Sticker ID
 STICKER_ID = 749054660769218631
@@ -23,7 +42,6 @@ def send_sticker_task():
                 bot.loop.create_task(channel.send(stickers=[sticker]))
                 print("Wumpus wave sticker sent!")
             else:
-                # Fallback if bot.get_sticker returns None for default stickers
                 sticker_obj = discord.Object(id=STICKER_ID)
                 bot.loop.create_task(channel.send(stickers=[sticker_obj]))
                 print("Wumpus wave sticker sent via object!")
@@ -40,4 +58,5 @@ async def on_ready():
     if not send_sticker_task.is_running():
         send_sticker_task.start()
 
+# Run bot using Environment Variable token
 bot.run(os.environ['DISCORD_TOKEN'])
